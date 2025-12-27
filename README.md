@@ -1,6 +1,11 @@
 # DeltaNet
 
-A PyTorch implementation of DeltaNet, a linear attention mechanism with chunked computation for efficient sequence modeling.
+A PyTorch implementation of **DeltaNet** based on the paper:
+
+> **Parallelizing Linear Transformers with the Delta Rule over Sequence Length**  
+> Songlin Yang, Bailin Wang, Yu Zhang, Yikang Shen, Yoon Kim  
+> arXiv:2406.06484, 2024  
+> [Paper](https://arxiv.org/abs/2406.06484) | [PDF](https://arxiv.org/pdf/2406.06484)
 
 ## Overview
 
@@ -110,6 +115,19 @@ output = block(x)
 
 - Python 3.7+
 - PyTorch 1.9+
+
+## Citation
+
+If you use this implementation, please cite the original paper:
+
+```bibtex
+@article{yang2024parallelizing,
+  title={Parallelizing Linear Transformers with the Delta Rule over Sequence Length},
+  author={Yang, Songlin and Wang, Bailin and Zhang, Yu and Shen, Yikang and Kim, Yoon},
+  journal={arXiv preprint arXiv:2406.06484},
+  year={2024}
+}
+```
 
 ## License
 
