@@ -11,10 +11,11 @@ A PyTorch implementation of **DeltaNet** based on the paper:
 
 DeltaNet is a linear attention variant that uses a delta rule update mechanism for maintaining a recurrent state. This implementation features:
 
-- **Chunked Attention**: Efficient computation by processing sequences in chunks
+- **Multi-Head Chunked Attention**: Efficient computation by processing sequences in chunks with multi-head support
 - **Linear Complexity**: O(L) complexity instead of O(L²) for standard attention
 - **RMSNorm**: Root Mean Square Layer Normalization for stable training
 - **SwiGLU Activation**: Gated activation function for the feed-forward network
+- **Language Model Ready**: Full transformer architecture with embedding and output head
 
 ## Architecture
 
@@ -22,12 +23,12 @@ DeltaNet is a linear attention variant that uses a delta rule update mechanism f
 
 | Component | Description |
 |-----------|-------------|
-| `chunk_delta_rule` | Core chunked attention algorithm with delta rule updates |
+| `chunk_delta_rule` | Core multi-head chunked attention algorithm with delta rule updates |
 | `RMSNorm` | Root Mean Square Normalization layer |
-| `DeltaNet` | Main attention module with Q, K, V projections and 1D convolutions |
+| `DeltaNet` | Multi-head attention module with Q, K, V projections and 1D convolutions |
 | `SwiGLU` | Swish-Gated Linear Unit activation |
-| `TransformerBlock` | Full transformer block with DeltaNet attention and FFN |
-| `TransformerDeltaNet` | Stacked DeltaNet layers with residual connections |
+| `DeltaNetBlock` | Full block with DeltaNet attention and SwiGLU FFN with residual connections |
+| `DeltaNetModel` | Complete language model with embedding, stacked blocks, and output head |
 
 ## Installation
 
@@ -37,23 +38,24 @@ pip install torch
 
 ## Usage
 
-### Basic Usage
+### Language Model
 
 ```python
 import torch
-from deltanet import TransformerDeltaNet
+from deltanet import DeltaNetModel
 
-# Initialize model
-model = TransformerDeltaNet(
-    d_model=64,      # Model dimension
-    chunk_size=4,    # Chunk size for attention
-    num_layers=6     # Number of DeltaNet layers
+# Initialize language model
+model = DeltaNetModel(
+    vocab_size=1000,   # Vocabulary size
+    dim=128,           # Model dimension
+    depth=2,           # Number of DeltaNet blocks
+    num_heads=4        # Number of attention heads
 )
 
 # Forward pass
-input_tensor = torch.randn(8, 128, 64)  # (batch_size, seq_len, d_model)
-output = model(input_tensor)
-print(output.shape)  # torch.Size([8, 128, 64])
+input_ids = torch.randint(0, 1000, (2, 64))  # (batch_size, seq_len)
+logits = model(input_ids)
+print(logits.shape)  # torch.Size([2, 64, 1000])
 ```
 
 ### Using the Chunk Delta Rule Directly
@@ -61,55 +63,58 @@ print(output.shape)  # torch.Size([8, 128, 64])
 ```python
 import torch
 
-B, L, d = 2, 10, 4
-Q = torch.randn(B, L, d)
-K = torch.randn(B, L, d)
-V = torch.randn(B, L, d)
-beta = torch.ones(B, L)
+B, H, L, d = 2, 8, 10, 4  # batch, heads, seq_len, head_dim
+Q = torch.randn(B, H, L, d)
+K = torch.randn(B, H, L, d)
+V = torch.randn(B, H, L, d)
+beta = torch.ones(B, H, L)
 chunk_size = 2
 
 output = chunk_delta_rule(Q, K, V, beta, chunk_size)
+print(output.shape)  # torch.Size([2, 8, 10, 4])
 ```
 
-### Transformer Block with FFN
+### DeltaNet Block
 
 ```python
-from deltanet import TransformerBlock
+from deltanet import DeltaNetBlock
 
-block = TransformerBlock(
-    d_model=64,
-    chunk_size=4,
-    ff_hidden_dim=256
+block = DeltaNetBlock(
+    dim=128,
+    num_heads=4,
+    mlp_ratio=4.0  # FFN hidden dim = dim * mlp_ratio
 )
 
-x = torch.randn(8, 128, 64)
+x = torch.randn(8, 64, 128)  # (batch_size, seq_len, dim)
 output = block(x)
 ```
 
 ## Model Parameters
 
-### DeltaNet
+### DeltaNet (Attention Module)
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `d_model` | int | - | Dimension of the model |
+| `chunk_size` | int | 64 | Size of chunks for attention computation |
+| `num_heads` | int | 8 | Number of attention heads |
+
+### DeltaNetBlock
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `dim` | int | - | Dimension of the model |
+| `num_heads` | int | - | Number of attention heads |
+| `mlp_ratio` | float | 4.0 | Ratio for FFN hidden dimension |
+
+### DeltaNetModel
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `d_model` | int | Dimension of the model |
-| `chunk_size` | int | Size of chunks for attention computation |
-
-### TransformerBlock
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `d_model` | int | Dimension of the model |
-| `chunk_size` | int | Size of chunks for attention computation |
-| `ff_hidden_dim` | int | Hidden dimension of the feed-forward network |
-
-### TransformerDeltaNet
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `d_model` | int | Dimension of the model |
-| `chunk_size` | int | Size of chunks for attention computation |
-| `num_layers` | int | Number of DeltaNet layers |
+| `vocab_size` | int | Size of the vocabulary |
+| `dim` | int | Dimension of the model |
+| `depth` | int | Number of DeltaNet blocks |
+| `num_heads` | int | Number of attention heads |
 
 ## Requirements
 
