@@ -25,7 +25,7 @@ DeltaNet is a linear attention variant that uses a delta rule update mechanism f
 |-----------|-------------|
 | `chunk_delta_rule` | Core multi-head chunked attention algorithm with delta rule updates |
 | `RMSNorm` | Root Mean Square Normalization layer |
-| `DeltaNet` | Multi-head attention module with Q, K, V projections and 1D convolutions |
+| `DeltaNet` | Multi-head attention module with Q, K, V projections, 1D convolutions, and learnable beta |
 | `SwiGLU` | Swish-Gated Linear Unit activation |
 | `DeltaNetBlock` | Full block with DeltaNet attention and SwiGLU FFN with residual connections |
 | `DeltaNetModel` | Complete language model with embedding, stacked blocks, and output head |
@@ -42,7 +42,6 @@ pip install torch
 
 ```python
 import torch
-from deltanet import DeltaNetModel
 
 # Initialize language model
 model = DeltaNetModel(
@@ -63,33 +62,57 @@ print(logits.shape)  # torch.Size([2, 64, 1000])
 ```python
 import torch
 
-B, H, L, d = 2, 8, 10, 4  # batch, heads, seq_len, head_dim
+B, H, L, d = 2, 8, 1024, 64  # batch, heads, seq_len, head_dim
 Q = torch.randn(B, H, L, d)
 K = torch.randn(B, H, L, d)
 V = torch.randn(B, H, L, d)
 beta = torch.ones(B, H, L)
-chunk_size = 2
+chunk_size = 16
 
 output = chunk_delta_rule(Q, K, V, beta, chunk_size)
-print(output.shape)  # torch.Size([2, 8, 10, 4])
+print(output.shape)  # torch.Size([2, 8, 1024, 64])
+```
+
+### DeltaNet Attention Module
+
+```python
+# DeltaNet attention module
+delta_net = DeltaNet(
+    d_model=128,       # Model dimension
+    chunk_size=64,     # Chunk size for attention
+    num_heads=8        # Number of attention heads
+)
+
+x = torch.randn(2, 64, 128)  # (batch_size, seq_len, d_model)
+output = delta_net(x)
+print(output.shape)  # torch.Size([2, 64, 128])
 ```
 
 ### DeltaNet Block
 
 ```python
-from deltanet import DeltaNetBlock
-
 block = DeltaNetBlock(
     dim=128,
     num_heads=4,
     mlp_ratio=4.0  # FFN hidden dim = dim * mlp_ratio
 )
 
-x = torch.randn(8, 64, 128)  # (batch_size, seq_len, dim)
+x = torch.randn(2, 64, 128)  # (batch_size, seq_len, dim)
 output = block(x)
+print(output.shape)  # torch.Size([2, 64, 128])
 ```
 
 ## Model Parameters
+
+### chunk_delta_rule (Function)
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `q` | Tensor | Query tensor of shape `(batch_size, num_heads, seq_len, head_dim)` |
+| `k` | Tensor | Key tensor of shape `(batch_size, num_heads, seq_len, head_dim)` |
+| `v` | Tensor | Value tensor of shape `(batch_size, num_heads, seq_len, head_dim)` |
+| `beta` | Tensor | Beta tensor of shape `(batch_size, num_heads, seq_len)` |
+| `chunk_size` | int | Size of chunks for attention computation |
 
 ### DeltaNet (Attention Module)
 
@@ -98,6 +121,14 @@ output = block(x)
 | `d_model` | int | - | Dimension of the model |
 | `chunk_size` | int | 64 | Size of chunks for attention computation |
 | `num_heads` | int | 8 | Number of attention heads |
+
+### SwiGLU
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `dim` | int | - | Input/output dimension |
+| `hidden_dim` | int | - | Hidden dimension |
+| `bias` | bool | False | Whether to use bias in linear layers |
 
 ### DeltaNetBlock
 
